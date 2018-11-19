@@ -45,13 +45,17 @@ class Tree:
         with open(self._jsonfile, "r") as f:
             self._tree = json.load(f)
 
+    def save(self):
+        with open(self._jsonfile, "w") as f:
+            f.write(json.dumps(self._tree, indent=4))
+
     def add(self, file):
-        # TODO: putting to the structure and saving to the file
-        pass
+        self._tree[file['path']] = file
+        self.save()
 
     def get(self, path) -> dict:
         self._tree.get(path, None)
 
     def pop(self, path):
         self._tree.pop(path, None)
-        # TODO: saving to the file
+        self.save()
