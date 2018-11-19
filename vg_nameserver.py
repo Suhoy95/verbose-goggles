@@ -34,6 +34,10 @@ def main(args):
     # Global state of Nameserver
     Tree = dfs.Tree(jsonfile=args.treejson)
     Location = dict()
+    for path, file in Tree._tree.items():
+        if file['type'] == dfs.FILE:
+            Location[path] = set()
+
     NeedReplication = set()
     ActiveStorages = set()
     GlobalLock = threading.Lock()

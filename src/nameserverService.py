@@ -68,7 +68,7 @@ class NameserverService(rpyc.Service):
             self._Location[f['path']].add(self)
             return True
 
-    def exposed_isActualDir(self, path):
+    def exposed_isdir(self, path):
         logging.debug('isActualDir:%s:%s', self.name, path)
         with self._GlobalLock:
             d = self._Tree.get(path)
@@ -131,7 +131,14 @@ class NameserverService(rpyc.Service):
 #
 #   method for the Client
 #
-    def du(self):
+    def exposed_du(self):
         # return information about
         # self._ActiveStorages
         pass
+
+    def exposed_listdir(self, path):
+        with self._GlobalLock:
+            d = self._Tree.get(path)
+            if d is None or d['type'] != dfs.DIRECTORY:
+                raise ValueError("{} is not a directory".format(path))
+            return d['files']

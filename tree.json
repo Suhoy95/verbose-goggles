@@ -5,7 +5,8 @@
         "files": [
             "file1",
             "dir",
-            "dir2"
+            "dir2",
+            "dir3"
         ]
     },
     "/file1": {
@@ -53,5 +54,10 @@
         "type": "FILE",
         "size": 4,
         "hash": "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4"
+    },
+    "/dir3": {
+        "path": "/dir3",
+        "type": "DIRECTORY",
+        "files": []
     }
 }

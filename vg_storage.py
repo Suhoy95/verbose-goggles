@@ -34,12 +34,19 @@ def parse_args():
 def main(args):
     logging.basicConfig(level=logging.DEBUG)
 
-    nsConn = rpyc.ssl_connect(
-        args.ns_hostname, port=args.ns_port,
-        keyfile=args.keyfile,
-        certfile=args.certfile,
-        ca_certs=args.ca_cert,
-    )
+    try:
+        nsConn = rpyc.ssl_connect(
+            args.ns_hostname, port=args.ns_port,
+            keyfile=args.keyfile,
+            certfile=args.certfile,
+            ca_certs=args.ca_cert,
+            config={
+                'sync_request_timeout': -1,
+            }
+        )
+    except ConnectionRefusedError:
+        logging.fatal("Could not connect too the nameserver")
+        exit(-1)
 
     storage = dfs.Storage(
         name=args.name,

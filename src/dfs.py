@@ -1,4 +1,5 @@
 import json
+import hashlib
 from typing import Dict, Set
 
 
@@ -35,6 +36,14 @@ def Storage(name, addr, capacity):
     }
 
 
+def filehash(filename):
+    hash_sha256 = hashlib.sha256()
+    with open(filename, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_sha256.update(chunk)
+    return hash_sha256.hexdigest()
+
+
 class Tree:
     def __init__(self, jsonfile):
         self._jsonfile = jsonfile
@@ -54,7 +63,7 @@ class Tree:
         self.save()
 
     def get(self, path) -> dict:
-        self._tree.get(path, None)
+        return self._tree.get(path, None)
 
     def pop(self, path):
         self._tree.pop(path, None)
