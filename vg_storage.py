@@ -1,5 +1,6 @@
 import logging
 import argparse
+from threading import Thread
 
 import rpyc
 from rpyc.utils.authenticators import SSLAuthenticator
@@ -32,8 +33,6 @@ def parse_args():
     return parser.parse_args()
 
 
-
-
 def main(args):
     logging.basicConfig(level=logging.DEBUG)
 
@@ -47,19 +46,24 @@ def main(args):
                 'sync_request_timeout': -1,
             }
         )
-    except ConnectionRefusedError:
+    except Exception:
         logging.fatal("Could not connect too the nameserver")
         exit(-1)
 
-    storage = dfs.Storage(
-        name=args.name,
-        addr=[args.hostname, args.port],
-        capacity=args.capacity
-    )
+    def becomeStorage():
+        nsConn.root.upgrade(
+            name=args.name,
+            hostname=args.hostname,
+            port=args.port,
+            capacity=args.capacity
+        )
+        recoverFiles(args.rootpath, nsConn.root)
+        nsConn.root.activate()
 
-    nsConn.root.upgrade(storage)
-    recoverFiles(args.rootpath, nsConn.root)
-    nsConn.root.activate()
+    t = Thread(target=becomeStorage)
+    t.daemon = True
+    t.start()
+
 
     sslAuth = SSLAuthenticator(
         keyfile=args.keyfile,
@@ -67,13 +71,16 @@ def main(args):
         ca_certs=args.ca_cert,
     )
 
-    service = StorageService()
+    service = StorageService(args)
 
     server = ThreadedServer(
         service=service,
         hostname=args.hostname,
         port=args.port,
-        authenticator=sslAuth)
+        authenticator=sslAuth,
+        protocol_config={
+            'allow_public_attrs': True,
+        })
 
     setWatchDog(nsConn, server)
     server.start()

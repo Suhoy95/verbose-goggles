@@ -1,3 +1,4 @@
+import time
 import logging
 import argparse
 import threading
@@ -34,13 +35,15 @@ def main(args):
     # Global state of Nameserver
     Tree = dfs.Tree(jsonfile=args.treejson)
     Location = dict()
-    for path, file in Tree._tree.items():
-        if file['type'] == dfs.FILE:
-            Location[path] = set()
-
     NeedReplication = set()
     ActiveStorages = set()
     GlobalLock = threading.Lock()
+
+    for path, file in Tree._tree.items():
+        if file['type'] == dfs.FILE:
+            Location[path] = set()
+            NeedReplication.add(path)
+
 
     service = classpartial(NameserverService,
                            Tree=Tree,
@@ -48,13 +51,17 @@ def main(args):
                            NeedReplication=NeedReplication,
                            ActiveStorages=ActiveStorages,
                            GlobalLock=GlobalLock,
+                           args=args,
                            )
 
     server = ThreadedServer(
         service=service,
         hostname=args.hostname,
         port=args.port,
-        authenticator=sslAuth)
+        authenticator=sslAuth,
+        protocol_config={
+            'allow_public_attrs': True,
+        })
 
     server.start()
 

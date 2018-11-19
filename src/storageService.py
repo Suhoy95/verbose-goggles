@@ -8,12 +8,17 @@ from os.path import (
     isdir,
     exists
 )
+import threading
 from threading import Thread
 import logging
+import shutil
 
 import rpyc
 
 import src.dfs as dfs
+
+
+GlobalLock = threading.Lock()
 
 
 def walkOnStorage(rootPath, curdir, ns):
@@ -29,7 +34,7 @@ def walkOnStorage(rootPath, curdir, ns):
                 getsize(fullpath),
                 dfs.filehash(fullpath)
             )
-            if not ns.isActualFile(file):
+            if not ns.tryPublishFile(file):
                 os.remove(fullpath)  # <======================= rm
         elif isdir(fullpath):
             walkOnStorage(rootPath, dfs_path, ns)
@@ -72,6 +77,31 @@ def setWatchDog(nsConn, server):
 
 
 class StorageService(rpyc.Service):
+
+    def __init__(self, args):
+        self._args = args
+        self._rootpath = args.rootpath
+
+    def exposed_pull(self, src_name, src_hostname, src_port, filepath):
+        with GlobalLock:
+            logging.info('Pulling %s from "%s"', filepath, src_name)
+            conn = rpyc.ssl_connect(src_hostname, port=src_port,
+                                    keyfile=self._args.keyfile,
+                                    certfile=self._args.certfile,
+                                    ca_certs=self._args.ca_cert,
+                                    config={
+                                        'sync_request_timeout': -1,
+                                    })
+            targetFile = normpath(join(self._rootpath, '.' + filepath))
+            with conn.root.open(filepath, "br") as fsrc:
+                with open(targetFile, "bw") as fout:
+                    shutil.copyfileobj(fsrc, fout)
+
+    def exposed_open(self, filepath, mode):
+        with GlobalLock:
+            logging.debug("open:[%s] %s ", mode, filepath)
+            fullpath = normpath(join(self._rootpath, '.' + filepath))
+            return open(fullpath, mode)
 
     def rm(self, path):
         pass

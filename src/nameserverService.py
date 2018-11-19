@@ -7,13 +7,24 @@ import rpyc
 import src.dfs as dfs
 
 
+def tryReplicateFile(src, dst, filepath, args):
+    addr = dst['addr']
+    conn = rpyc.ssl_connect(addr[0], port=addr[1],
+                            keyfile=args.keyfile,
+                            certfile=args.certfile,
+                            ca_certs=args.ca_cert,
+                            config={'sync_request_timeout': -1, })
+    conn.root.pull(src['name'], src['addr'][0], src['addr'][1], filepath)
+
+
 class NameserverService(rpyc.Service):
     def __init__(self,
                  Tree: dfs.Tree,
                  Location: Dict[str, set],
                  NeedReplication: Set[str],
                  ActiveStorages: set,
-                 GlobalLock: threading.Lock):
+                 GlobalLock: threading.Lock,
+                 args):
 
         rpyc.Service.__init__(self)
         self._Tree = Tree
@@ -21,6 +32,7 @@ class NameserverService(rpyc.Service):
         self._NeedReplication = NeedReplication
         self._ActiveStorages = ActiveStorages
         self._GlobalLock = GlobalLock
+        self._args = args
         self._storage = None
 
     @property
@@ -39,9 +51,9 @@ class NameserverService(rpyc.Service):
         with self._GlobalLock:
             logging.info('Storage "%s" has disconnected',
                          self._storage['name'])
-            self._ActiveStorages.pop(self)
+            self._ActiveStorages.remove(self)
             for filepath, storages in self._Location.items():
-                storages.pop(self)
+                storages.remove(self)
                 if len(storages) == 1:
                     self._NeedReplication.add(filepath)
             self.tryReplicate()
@@ -49,12 +61,16 @@ class NameserverService(rpyc.Service):
 #
 #   method for storage(s)
 #
-    def exposed_upgrade(self, storage):
+    def exposed_upgrade(self, name, hostname, port, capacity):
         """ Exclaim that connection is storage """
-        self._storage = storage
+        self._storage = dfs.Storage(
+            name=name,
+            addr=[hostname, port],
+            capacity=capacity
+        )
         logging.debug('upgrade: storage="%s"', self.name)
 
-    def exposed_isActualFile(self, file):
+    def exposed_tryPublishFile(self, file):
         """ Storage asks should it keeps the file or not """
         logging.debug('isActualFile:%s:%s', self.name, file['path'])
         with self._GlobalLock:
@@ -65,6 +81,7 @@ class NameserverService(rpyc.Service):
                     f['size'] != file['size']):
                 return False
 
+            self._storage['free'] -= file['size']
             self._Location[f['path']].add(self)
             return True
 
@@ -79,8 +96,8 @@ class NameserverService(rpyc.Service):
         """ Exclaim that storage become active """
         with self._GlobalLock:
             self._ActiveStorages.add(self)
-            self.tryReplicate()
             logging.info('Storage "%s" has activated', self.name)
+            self.tryReplicate()
 
     def exposed_write_notification(self, file):
         """ event of client's writing file (create/update)"""
@@ -102,7 +119,13 @@ class NameserverService(rpyc.Service):
             self.tryReplicate()
 
     def tryReplicate(self):
-        """ Trying to find new storage to backup the file """
+        """
+            Trying to find new storage to backup the file
+            Call it under _GlobalLock and from storage-bind conection!!!
+        """
+        if self._storage is None:
+            raise ValueError("Trying to run replication from client")
+
         # remove files, which has become replicated
         notNeed = set()
         for filepath in self._NeedReplication:
@@ -113,8 +136,22 @@ class NameserverService(rpyc.Service):
 
         for filepath in self._NeedReplication:
             logging.info('Trying to replicate "%s"', filepath)
-            # TODO:
-            pass
+            for s in self._ActiveStorages - self._Location[filepath]:
+                file = self._Tree.get(filepath)
+                if s._storage['free'] > file['size']:
+                    try:
+                        src_storage = list(self._Location[filepath])[0]
+                        tryReplicateFile(
+                            src_storage._storage,
+                            s._storage,
+                            filepath,
+                            self._args)
+                        self._Location[filepath].add(s)
+                        break
+                    except Exception as e:
+                        print(e)
+
+
 
     def rm(self, file):
         self._Tree.pop(file['path'])
