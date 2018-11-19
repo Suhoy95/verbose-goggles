@@ -87,6 +87,17 @@
             ]
         },
         {
+            "name": "restore Tree from Alice's storage",
+            "type": "python",
+            "request": "launch",
+            "program": "./src/restoretree.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--rootpath", "storages/alice",
+                "--treejson", "tree.json"
+            ]
+        },
+        {
             "name": "Python: Current File (Integrated Terminal)",
             "type": "python",
             "request": "launch",

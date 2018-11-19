@@ -1,0 +1,57 @@
+{
+    "/": {
+        "path": "/",
+        "type": "DIRECTORY",
+        "files": [
+            "file1",
+            "dir",
+            "dir2"
+        ]
+    },
+    "/file1": {
+        "path": "/file1",
+        "type": "FILE",
+        "size": 1,
+        "hash": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+    },
+    "/dir": {
+        "path": "/dir",
+        "type": "DIRECTORY",
+        "files": [
+            "subdir",
+            "file2"
+        ]
+    },
+    "/dir/subdir": {
+        "path": "/dir/subdir",
+        "type": "DIRECTORY",
+        "files": [
+            "file3"
+        ]
+    },
+    "/dir/subdir/file3": {
+        "path": "/dir/subdir/file3",
+        "type": "FILE",
+        "size": 3,
+        "hash": "a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3"
+    },
+    "/dir/file2": {
+        "path": "/dir/file2",
+        "type": "FILE",
+        "size": 2,
+        "hash": "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918"
+    },
+    "/dir2": {
+        "path": "/dir2",
+        "type": "DIRECTORY",
+        "files": [
+            "file4"
+        ]
+    },
+    "/dir2/file4": {
+        "path": "/dir2/file4",
+        "type": "FILE",
+        "size": 4,
+        "hash": "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4"
+    }
+}

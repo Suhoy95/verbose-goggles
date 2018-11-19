@@ -1,4 +1,4 @@
-import enum
+import json
 from typing import Dict, Set
 
 
@@ -15,12 +15,16 @@ def File(path, size, filehash):
     }
 
 
-def Dir(path, files=[]):
+def Dir(path, files=None):
+    if files is None:
+        files = []
+
     return {
         'path': path,
         'type': DIRECTORY,
         'files': files
     }
+
 
 def Storage(name, addr, capacity):
     return {
@@ -34,8 +38,12 @@ def Storage(name, addr, capacity):
 class Tree:
     def __init__(self, jsonfile):
         self._jsonfile = jsonfile
-        # TODO: loading from file
-        self._tree = {}
+        with open(jsonfile, "r") as f:
+            self._tree = json.load(f)
+
+    def refresh(self):
+        with open(self._jsonfile, "r") as f:
+            self._tree = json.load(f)
 
     def add(self, file):
         # TODO: putting to the structure and saving to the file
