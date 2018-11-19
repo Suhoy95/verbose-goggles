@@ -8,7 +8,8 @@ from rpyc.utils.server import ThreadedServer
 import src.dfs as dfs
 from src.storageService import (
     StorageService,
-    recoverFiles
+    recoverFiles,
+    setWatchDog
 )
 
 
@@ -29,6 +30,8 @@ def parse_args():
     parser.add_argument("--rootpath")
 
     return parser.parse_args()
+
+
 
 
 def main(args):
@@ -72,6 +75,7 @@ def main(args):
         port=args.port,
         authenticator=sslAuth)
 
+    setWatchDog(nsConn, server)
     server.start()
 
 

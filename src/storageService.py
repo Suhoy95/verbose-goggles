@@ -1,3 +1,4 @@
+import time
 import os
 from os.path import (
     getsize,
@@ -7,6 +8,8 @@ from os.path import (
     isdir,
     exists
 )
+from threading import Thread
+import logging
 
 import rpyc
 
@@ -50,6 +53,23 @@ def walkOnDfs(rootPath, dfs_dir, ns):
 def recoverFiles(rootPath, ns):
     walkOnStorage(rootPath, '/', ns)
     walkOnDfs(rootPath, '/', ns)
+
+
+def setWatchDog(nsConn, server):
+    def checkNsConnection():
+        while True:
+            time.sleep(1)
+            try:
+                nsConn.ping("Hello")
+            except:
+                logging.fatal("Lost connection with nameserver")
+                server.close()
+                exit(-1)
+
+    t = Thread(target=checkNsConnection)
+    t.daemon = True
+    t.start()
+
 
 class StorageService(rpyc.Service):
 
