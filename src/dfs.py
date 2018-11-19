@@ -22,10 +22,18 @@ def Dir(path, files=[]):
         'files': files
     }
 
+def Storage(name, addr, capacity):
+    return {
+        'name': name,
+        'addr': addr,
+        'free': capacity,
+        'capacity': capacity,
+    }
+
 
 class Tree:
-    def __init__(self, filename):
-        self._filename = filename
+    def __init__(self, jsonfile):
+        self._jsonfile = jsonfile
         # TODO: loading from file
         self._tree = {}
 

@@ -1,0 +1,146 @@
+{
+    // Используйте IntelliSense, чтобы узнать о возможных атрибутах.
+    // Наведите указатель мыши, чтобы просмотреть описания существующих атрибутов.
+    // Для получения дополнительной информации посетите: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Start Nameserver",
+            "type": "python",
+            "request": "launch",
+            "program": "./vg_nameserver.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--hostname", "localhost",
+                "--port", "7777",
+                "--treejson", "tree.json",
+
+                "--ca_cert", "certs/rootCA.crt",
+                "--keyfile", "certs/nameserver/nameserver.key",
+                "--certfile", "certs/nameserver/nameserver.crt"
+            ]
+        },
+        {
+            "name": "Start Alice Storage",
+            "type": "python",
+            "request": "launch",
+            "program": "./vg_storage.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--name", "Alice",
+                "--hostname", "localhost",
+                "--port", "10001",
+                "--capacity", "1048576", // 1 MiB
+
+                "--ca_cert", "certs/rootCA.crt",
+                "--keyfile", "certs/alice/alice.key",
+                "--certfile", "certs/alice/alice.crt",
+
+                "--ns_hostname", "localhost",
+                "--ns_port", "7777",
+
+                "--rootpath", "storages/alice"
+            ]
+        },
+        {
+            "name": "Start Bob Storage",
+            "type": "python",
+            "request": "launch",
+            "program": "./vg_storage.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--name", "Bob",
+                "--hostname", "localhost",
+                "--port", "12021",
+                "--capacity", "1048576", // 1 MiB
+
+                "--ca_cert", "certs/rootCA.crt",
+                "--keyfile", "certs/bob/bob.key",
+                "--certfile", "certs/bob/bob.crt",
+
+                "--ns_hostname", "localhost",
+                "--ns_port", "7777",
+
+                "--rootpath", "storages/bob"
+            ]
+        },
+        {
+            "name": "Start Trent Storage",
+            "type": "python",
+            "request": "launch",
+            "program": "./vg_storage.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--name", "Trent",
+                "--hostname", "localhost",
+                "--port", "13131",
+                "--capacity", "1048576", // 1 MiB
+
+                "--ca_cert", "certs/rootCA.crt",
+                "--keyfile", "certs/trent/trent.key",
+                "--certfile", "certs/trent/trent.crt",
+
+                "--ns_hostname", "localhost",
+                "--ns_port", "7777",
+
+                "--rootpath", "storages/trent"
+            ]
+        },
+        {
+            "name": "Python: Current File (Integrated Terminal)",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Attach",
+            "type": "python",
+            "request": "attach",
+            "port": 5678,
+            "host": "localhost"
+        },
+        {
+            "name": "Python: Module",
+            "type": "python",
+            "request": "launch",
+            "module": "enter-your-module-name-here",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Django",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/manage.py",
+            "console": "integratedTerminal",
+            "args": [
+                "runserver",
+                "--noreload",
+                "--nothreading"
+            ],
+            "django": true
+        },
+        {
+            "name": "Python: Flask",
+            "type": "python",
+            "request": "launch",
+            "module": "flask",
+            "env": {
+                "FLASK_APP": "app.py"
+            },
+            "args": [
+                "run",
+                "--no-debugger",
+                "--no-reload"
+            ],
+            "jinja": true
+        },
+        {
+            "name": "Python: Current File (External Terminal)",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "externalTerminal"
+        }
+    ]
+}
