@@ -42,6 +42,15 @@ def mkdir_on(storage, dfs_dir, args):
     conn.root.mkdir(dfs_dir)
     conn.close()
 
+def rmdir_from(storage, dfs_dir, args):
+    addr = storage['addr']
+    conn = rpyc.ssl_connect(addr[0], port=addr[1],
+                            keyfile=args.keyfile,
+                            certfile=args.certfile,
+                            ca_certs=args.ca_cert,
+                            config={'sync_request_timeout': -1, })
+    conn.root.rmdir(dfs_dir)
+    conn.close()
 
 class NameserverService(rpyc.Service):
     def __init__(self,
@@ -112,11 +121,18 @@ class NameserverService(rpyc.Service):
             return True
 
     def exposed_isdir(self, path):
-        logging.debug('isActualDir:%s:%s', self.name, path)
+        logging.debug('isdir:%s:%s', self.name, path)
         with self._GlobalLock:
-            d = self._Tree.get(path)
-            return (d is not None and
-                    d['type'] == dfs.DIRECTORY)
+            stat = self._Tree.get(path)
+            return (stat is not None and
+                    stat['type'] == dfs.DIRECTORY)
+
+    def exposed_isfile(self, path):
+        logging.debug('isfile:%s:%s', self.name, path)
+        with self._GlobalLock:
+            stat = self._Tree.get(path)
+            return (stat is not None and
+                    stat['type'] == dfs.FILE)
 
     def exposed_listdir(self, path):
         with self._GlobalLock:
@@ -241,10 +257,22 @@ class NameserverService(rpyc.Service):
 
     def exposed_mkdir(self, dfs_dir: str):
         with self._GlobalLock:
+            logging.info("mkdir %s", dfs_dir)
             self._Tree.add(dfs.Dir(dfs_dir))
 
             for s in self._ActiveStorages:
                 try:
                     mkdir_on(s._storage, dfs_dir, self._args)
                 except Exception as e:
-                    logging.warn("FAIL: rm %s : %s", dfs_dir, e)
+                    logging.warn("FAIL: mkdir %s : %s", dfs_dir, e)
+
+    def exposed_rmdir(self, dfs_dir: str):
+        with self._GlobalLock:
+            logging.info("rmdir %s", dfs_dir)
+            self._Tree.pop(dfs_dir)
+
+            for s in self._ActiveStorages:
+                try:
+                    rmdir_from(s._storage, dfs_dir, self._args)
+                except Exception as e:
+                    logging.warn("FAIL: rmdir %s : %s", dfs_dir, e)

@@ -265,20 +265,42 @@ class ClientCmd(cmd.Cmd):
 
         self._ns.mkdir(dfs_dir)
 
-    def do_rmdir(self, line):
+    def do_rmdir(self, line, recursive=False):
         """
         syntax: rmdir DFS_DIR_PATH
 
         Remove directory DFS_DIR_PATH from DFS
         """
-        line = self._to_dfs_abs_path(line)
-        if len(self.cmds.ls(line)) > 0:
-            confirm = input(
-                "'{}' is not empty. Remove recursively [y/N]?".format(line))
-            if confirm.lower() != 'y':
-                return
+        dfs_dir = self._to_dfs_abs_path(line)
 
-        self.cmds.rm(line, recursive=True)
+        if dfs_dir == '/':
+            raise VgException('Can not remove root')
+
+        d = self._ns.stat(dfs_dir)
+        if d is None:
+            raise VgException("{} does not exist".format(dfs_dir))
+
+        if d['type'] != dfs.DIRECTORY:
+            raise VgException("{} is not a directory".format(dfs_dir))
+
+        files = self._ns.listdir(dfs_dir)
+        if len(files) > 0:
+            if not recursive:
+                confirm = input(
+                    "'{}' is not empty. Remove recursively [y/N]?".format(dfs_dir))
+                if confirm.lower() != 'y':
+                    return
+                recursive = True
+            for name in files:
+                dfs_path = path.join(dfs_dir, name)
+                if self._ns.isdir(dfs_path):
+                    self.do_rmdir(dfs_path, recursive)
+                elif self._ns.isfile(dfs_path):
+                    self._ns.rm(dfs_path)
+                else:
+                    raise ValueError("bad file: {}".format(dfs_path))
+
+        self._ns.rmdir(dfs_dir)
 
     def do_EOF(self, _):
         """

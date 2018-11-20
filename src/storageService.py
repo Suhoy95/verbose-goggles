@@ -120,3 +120,9 @@ class StorageService(rpyc.Service):
             logging.debug("mkdir: %s", dirpath)
             fullpath = normpath(join(self._rootpath, '.' + dirpath))
             mkdir(fullpath)
+
+    def exposed_rmdir(self, dirpath):
+        with GlobalLock:
+            logging.debug("rmdir: %s", dirpath)
+            fullpath = normpath(join(self._rootpath, '.' + dirpath))
+            rmdir(fullpath)
