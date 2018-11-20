@@ -1,5 +1,8 @@
 import logging
 import threading
+from os.path import (
+    join
+)
 from typing import Dict, Set
 
 import rpyc
@@ -146,12 +149,11 @@ class NameserverService(rpyc.Service):
                             s._storage,
                             filepath,
                             self._args)
+                        s._storage['free'] -= file['size']
                         self._Location[filepath].add(s)
                         break
                     except Exception as e:
                         print(e)
-
-
 
     def rm(self, file):
         self._Tree.pop(file['path'])
@@ -169,9 +171,31 @@ class NameserverService(rpyc.Service):
 #   method for the Client
 #
     def exposed_du(self):
-        # return information about
-        # self._ActiveStorages
-        pass
+        with self._GlobalLock:
+            return list(map(lambda s: s._storage, self._ActiveStorages))
+
+    def exposed_stat(self, path):
+        with self._GlobalLock:
+            return self._Tree.get(path)
+
+    def exposed_locations(self, path):
+        return list(map(lambda s: s._storage, self._Location[path]))
+
+    def exposed_ls(self, dfs_dir):
+        with self._GlobalLock:
+            d = self._Tree.get(dfs_dir)
+            stats = list()
+            for name in d['files']:
+                f = self._Tree.get(join(dfs_dir, name))
+                nodes = list(map(lambda s: s._storage['name'],
+                                 self._Location.get(f['path'], [])))
+                stats.append({
+                    'type': f['type'],
+                    'name': name,
+                    'size': f.get('size', 0),
+                    'nodes': str(nodes)
+                })
+            return stats
 
     def exposed_listdir(self, path):
         with self._GlobalLock:

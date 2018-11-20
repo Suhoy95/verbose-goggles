@@ -4,6 +4,7 @@
     // Для получения дополнительной информации посетите: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+
         {
             "name": "Start Nameserver",
             "type": "python",
@@ -95,6 +96,23 @@
             "args": [
                 "--rootpath", "storages/alice",
                 "--treejson", "tree.json"
+            ]
+        },
+        {
+            "name": "Start client",
+            "type": "python",
+            "request": "launch",
+            "program": "./vg_client.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--local", "tmp",
+                "--loglevel", "DEBUG",
+                "--ns_hostname", "localhost",
+                "--ns_port", "7777",
+
+                "--ca_cert", "certs/rootCA.crt",
+                "--keyfile", "certs/client/client.key",
+                "--certfile", "certs/client/client.crt"
             ]
         },
         {
