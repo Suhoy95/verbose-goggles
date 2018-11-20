@@ -129,6 +129,7 @@ class ClientCmd(cmd.Cmd):
                 with conn.root.open(src_dfs_path, "br") as fsrc:
                     with open(dst_local_path, "bw") as fout:
                         shutil.copyfileobj(fsrc, fout)
+                conn.close()
                 return
             except Exception as e:
                 logging.warn("FAIL:get:%s from %s (%s)",
@@ -205,14 +206,17 @@ class ClientCmd(cmd.Cmd):
         if line == '':
             line = '/'
 
-        line = self._to_dfs_abs_path(line, isdir=True)
+        dfs_dir = self._to_dfs_abs_path(line, isdir=True)
 
-        f = self._ns.stat(line)
+        f = self._ns.stat(dfs_dir)
+        if f is None:
+            raise VgException("{} does not exist".format(dfs_dir))
+
         if f['type'] != dfs.DIRECTORY:
-            raise VgException("'{0}' is not a directory".format(line))
+            raise VgException("'{0}' is not a directory".format(dfs_dir))
 
-        self._cwd = line
-        self.prompt = "sdfs:{0}> ".format(line)
+        self._cwd = dfs_dir
+        self.prompt = "sdfs:{0}> ".format(dfs_dir)
 
     def do_rm(self, line):
         """
@@ -220,8 +224,15 @@ class ClientCmd(cmd.Cmd):
 
         Remove file, which is blased according DFS_FILE_PATH
         """
-        line = self._to_dfs_abs_path(line)
-        self.cmds.rm(line)
+        dfs_file = self._to_dfs_abs_path(line)
+        f = self._ns.stat(dfs_file)
+        if f is None:
+            raise VgException("{} does not exist".format(dfs_file))
+
+        if f['type'] != dfs.FILE:
+            raise VgException("'{0}' is not a file".format(dfs_file))
+
+        self._ns.rm(dfs_file)
 
     def do_local(self, line):
         """

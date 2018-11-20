@@ -18,7 +18,17 @@ def tryReplicateFile(src, dst, filepath, args):
                             ca_certs=args.ca_cert,
                             config={'sync_request_timeout': -1, })
     conn.root.pull(src['name'], src['addr'][0], src['addr'][1], filepath)
+    conn.close()
 
+def rm_from(storage, dfs_path, args):
+    addr = storage['addr']
+    conn = rpyc.ssl_connect(addr[0], port=addr[1],
+                            keyfile=args.keyfile,
+                            certfile=args.certfile,
+                            ca_certs=args.ca_cert,
+                            config={'sync_request_timeout': -1, })
+    conn.root.rm(dfs_path)
+    conn.close()
 
 class NameserverService(rpyc.Service):
     def __init__(self,
@@ -111,7 +121,8 @@ class NameserverService(rpyc.Service):
             # and go to situation when file was created
             if f is not None:
                 # TODO: not delete file on current storage, because it has been overwritten
-                self.rm(file)
+                # TODO: remove files
+                pass
 
             # file was created
             self._Tree.add(file)
@@ -155,17 +166,18 @@ class NameserverService(rpyc.Service):
                     except Exception as e:
                         print(e)
 
-    def rm(self, file):
-        self._Tree.pop(file['path'])
-        self._Location.pop(file['path'], None)
-        for s in self._Location.get(file['path'], set()):
-            addr = s._storage['addr']
-            s._storage['free'] += file['size']
-            try:
-                c = rpyc.connect(addr[0], port=addr[1])
-                c.root.rm(file['path'])
-            except:
-                pass
+    def exposed_rm(self, dfs_file):
+        logging.info("rm %s", dfs_file)
+        with self._GlobalLock:
+            self._NeedReplication.discard(dfs_file)
+            f = self._Tree.pop(dfs_file)
+            locations = self._Location.pop(dfs_file, set())
+            for s in locations:
+                try:
+                    rm_from(s._storage, dfs_file, self._args)
+                    s._storage['free'] += f['size']
+                except Exception as e:
+                    logging.warn("FAIL: rm %s : %s", dfs_file, e)
 
 #
 #   method for the Client

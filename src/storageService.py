@@ -1,12 +1,15 @@
 import time
 import os
+from os import (
+    remove
+)
 from os.path import (
     getsize,
     join,
     normpath,
     isfile,
     isdir,
-    exists
+    exists,
 )
 import threading
 from threading import Thread
@@ -96,6 +99,7 @@ class StorageService(rpyc.Service):
             with conn.root.open(filepath, "br") as fsrc:
                 with open(targetFile, "bw") as fout:
                     shutil.copyfileobj(fsrc, fout)
+            conn.close()
 
     def exposed_open(self, filepath, mode):
         with GlobalLock:
@@ -103,5 +107,8 @@ class StorageService(rpyc.Service):
             fullpath = normpath(join(self._rootpath, '.' + filepath))
             return open(fullpath, mode)
 
-    def rm(self, path):
-        pass
+    def rm(self, filepath):
+        with GlobalLock:
+            logging.debug("rm: %s", filepath)
+            fullpath = normpath(join(self._rootpath, '.' + filepath))
+            remove(fullpath)
