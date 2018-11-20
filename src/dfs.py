@@ -71,6 +71,9 @@ class Tree:
         self.save()
 
     def get(self, path) -> dict:
+        # by this way, if client gets the stat of dir or file,
+        # he can remotely change the internal Tree state
+        # but from client side we intrested these structure only as read-only, so OK
         return self._tree.get(path, None)
 
     def pop(self, path):

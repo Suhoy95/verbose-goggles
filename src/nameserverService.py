@@ -88,12 +88,9 @@ class NameserverService(rpyc.Service):
         with self._GlobalLock:
             logging.info('Storage "%s" has disconnected',
                          self._storage['name'])
-            self._ActiveStorages.remove(self)
+            self._ActiveStorages.discard(self)
             for filepath, storages in self._Location.items():
-                try:
-                    storages.remove(self)
-                except KeyError:
-                    pass
+                storages.discard(self)
                 if len(storages) <= 1:
                     self._NeedReplication.add(filepath)
             self.tryReplicate()
@@ -144,7 +141,7 @@ class NameserverService(rpyc.Service):
             d = self._Tree.get(path)
             if d is None or d['type'] != dfs.DIRECTORY:
                 raise ValueError("{} is not a directory".format(path))
-            return d['files']
+            return list(d['files'])
 
     def exposed_activate(self):
         """ Exclaim that storage become active """
@@ -206,7 +203,7 @@ class NameserverService(rpyc.Service):
             logging.info('Trying to replicate "%s"', filepath)
             for s in self._ActiveStorages - self._Location[filepath]:
                 file = self._Tree.get(filepath)
-                if s._storage['free'] > file['size']:
+                if s._storage['free'] > file['size'] and len(self._Location[filepath]) > 0:
                     try:
                         src_storage = list(self._Location[filepath])[0]
                         tryReplicateFile(
@@ -246,7 +243,7 @@ class NameserverService(rpyc.Service):
                     increase = stat['size']
 
                 if s._storage['free'] + increase > size:
-                    storages.append(s._storage)
+                    storages.append(dict(s._storage))
 
             return storages
 
