@@ -180,7 +180,7 @@ class ClientCmd(cmd.Cmd):
         list files of DFS_DIR_PATH.
         if DFS_DIR_PATH is not specified, current working DFS directory will be used
         """
-        dfs_dir = self._to_dfs_abs_path(line, isdir=True)
+        dfs_dir = self._to_dfs_abs_path(line)
 
         d = self._ns.stat(dfs_dir)
         if d is None:
@@ -206,7 +206,7 @@ class ClientCmd(cmd.Cmd):
         if line == '':
             line = '/'
 
-        dfs_dir = self._to_dfs_abs_path(line, isdir=True)
+        dfs_dir = self._to_dfs_abs_path(line)
 
         f = self._ns.stat(dfs_dir)
         if f is None:
@@ -258,8 +258,12 @@ class ClientCmd(cmd.Cmd):
 
         Create DFS directory on DFS_DIR_PATH
         """
-        line = self._to_dfs_abs_path(line, isdir=True)
-        self.cmds.mkdir(line)
+        dfs_dir = self._to_dfs_abs_path(line)
+        f = self._ns.stat(dfs_dir)
+        if f is not None:
+            raise VgException("{} already exsits".format(dfs_dir))
+
+        self._ns.mkdir(dfs_dir)
 
     def do_rmdir(self, line):
         """
@@ -267,7 +271,7 @@ class ClientCmd(cmd.Cmd):
 
         Remove directory DFS_DIR_PATH from DFS
         """
-        line = self._to_dfs_abs_path(line, isdir=True)
+        line = self._to_dfs_abs_path(line)
         if len(self.cmds.ls(line)) > 0:
             confirm = input(
                 "'{}' is not empty. Remove recursively [y/N]?".format(line))
@@ -286,7 +290,7 @@ class ClientCmd(cmd.Cmd):
         print("quiting...")
         return True
 
-    def _to_dfs_abs_path(self, line, isdir=False):
+    def _to_dfs_abs_path(self, line):
         if not path.isabs(line):
             line = path.join(self._cwd, line)
 

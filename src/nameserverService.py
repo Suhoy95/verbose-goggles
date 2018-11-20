@@ -20,6 +20,7 @@ def tryReplicateFile(src, dst, filepath, args):
     conn.root.pull(src['name'], src['addr'][0], src['addr'][1], filepath)
     conn.close()
 
+
 def rm_from(storage, dfs_path, args):
     addr = storage['addr']
     conn = rpyc.ssl_connect(addr[0], port=addr[1],
@@ -29,6 +30,18 @@ def rm_from(storage, dfs_path, args):
                             config={'sync_request_timeout': -1, })
     conn.root.rm(dfs_path)
     conn.close()
+
+
+def mkdir_on(storage, dfs_dir, args):
+    addr = storage['addr']
+    conn = rpyc.ssl_connect(addr[0], port=addr[1],
+                            keyfile=args.keyfile,
+                            certfile=args.certfile,
+                            ca_certs=args.ca_cert,
+                            config={'sync_request_timeout': -1, })
+    conn.root.mkdir(dfs_dir)
+    conn.close()
+
 
 class NameserverService(rpyc.Service):
     def __init__(self,
@@ -105,6 +118,13 @@ class NameserverService(rpyc.Service):
             return (d is not None and
                     d['type'] == dfs.DIRECTORY)
 
+    def exposed_listdir(self, path):
+        with self._GlobalLock:
+            d = self._Tree.get(path)
+            if d is None or d['type'] != dfs.DIRECTORY:
+                raise ValueError("{} is not a directory".format(path))
+            return d['files']
+
     def exposed_activate(self):
         """ Exclaim that storage become active """
         with self._GlobalLock:
@@ -166,22 +186,10 @@ class NameserverService(rpyc.Service):
                     except Exception as e:
                         print(e)
 
-    def exposed_rm(self, dfs_file):
-        logging.info("rm %s", dfs_file)
-        with self._GlobalLock:
-            self._NeedReplication.discard(dfs_file)
-            f = self._Tree.pop(dfs_file)
-            locations = self._Location.pop(dfs_file, set())
-            for s in locations:
-                try:
-                    rm_from(s._storage, dfs_file, self._args)
-                    s._storage['free'] += f['size']
-                except Exception as e:
-                    logging.warn("FAIL: rm %s : %s", dfs_file, e)
-
 #
 #   method for the Client
 #
+
     def exposed_du(self):
         with self._GlobalLock:
             return list(map(lambda s: s._storage, self._ActiveStorages))
@@ -198,9 +206,18 @@ class NameserverService(rpyc.Service):
             d = self._Tree.get(dfs_dir)
             stats = list()
             for name in d['files']:
-                f = self._Tree.get(join(dfs_dir, name))
-                nodes = list(map(lambda s: s._storage['name'],
-                                 self._Location.get(f['path'], [])))
+                filepath = join(dfs_dir, name)
+                f = self._Tree.get(filepath)
+                if f['type'] == dfs.FILE:
+                    nodes = list(map(lambda s: s._storage['name'],
+                                     self._Location.get(f['path'], [])))
+                elif f['type'] == dfs.DIRECTORY:
+                    nodes = list(map(lambda s: s._storage['name'],
+                                     self._ActiveStorages))
+                else:
+                    raise ValueError(
+                        "Bad filetype: {}, path: {}".format(f['type'], filepath))
+
                 stats.append({
                     'type': f['type'],
                     'name': name,
@@ -209,9 +226,25 @@ class NameserverService(rpyc.Service):
                 })
             return stats
 
-    def exposed_listdir(self, path):
+    def exposed_rm(self, dfs_file):
+        logging.info("rm %s", dfs_file)
         with self._GlobalLock:
-            d = self._Tree.get(path)
-            if d is None or d['type'] != dfs.DIRECTORY:
-                raise ValueError("{} is not a directory".format(path))
-            return d['files']
+            self._NeedReplication.discard(dfs_file)
+            f = self._Tree.pop(dfs_file)
+            locations = self._Location.pop(dfs_file, set())
+            for s in locations:
+                try:
+                    rm_from(s._storage, dfs_file, self._args)
+                    s._storage['free'] += f['size']
+                except Exception as e:
+                    logging.warn("FAIL: rm %s : %s", dfs_file, e)
+
+    def exposed_mkdir(self, dfs_dir: str):
+        with self._GlobalLock:
+            self._Tree.add(dfs.Dir(dfs_dir))
+
+            for s in self._ActiveStorages:
+                try:
+                    mkdir_on(s._storage, dfs_dir, self._args)
+                except Exception as e:
+                    logging.warn("FAIL: rm %s : %s", dfs_dir, e)

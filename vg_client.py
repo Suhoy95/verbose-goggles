@@ -113,6 +113,9 @@ if __name__ == "__main__":
             print("Use C^D to exiting")
         except VgException as e:
             print(e)
+        except EOFError as e:
+            print("[ERROR] Connection with nameserver has been lost")
+            exit(-1)
         except Exception as e:
             print("[ERROR] ", type(e), e)
             logging.exception("[ERROR]")

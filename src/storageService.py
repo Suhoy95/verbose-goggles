@@ -1,7 +1,9 @@
 import time
 import os
 from os import (
-    remove
+    remove,
+    mkdir,
+    rmdir,
 )
 from os.path import (
     getsize,
@@ -107,8 +109,14 @@ class StorageService(rpyc.Service):
             fullpath = normpath(join(self._rootpath, '.' + filepath))
             return open(fullpath, mode)
 
-    def rm(self, filepath):
+    def exposed_rm(self, filepath):
         with GlobalLock:
             logging.debug("rm: %s", filepath)
             fullpath = normpath(join(self._rootpath, '.' + filepath))
             remove(fullpath)
+
+    def exposed_mkdir(self, dirpath):
+        with GlobalLock:
+            logging.debug("mkdir: %s", dirpath)
+            fullpath = normpath(join(self._rootpath, '.' + dirpath))
+            mkdir(fullpath)

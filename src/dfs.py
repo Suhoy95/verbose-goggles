@@ -62,8 +62,12 @@ class Tree:
         with open(self._jsonfile, "w") as f:
             f.write(json.dumps(self._tree, indent=4))
 
-    def add(self, file):
-        self._tree[file['path']] = file
+    def add(self, stat):
+        name = basename(stat['path'])
+        dfs_dir = dirname(stat['path'])
+        dstat = self.get(dfs_dir)
+        dstat['files'].append(name)
+        self._tree[stat['path']] = stat
         self.save()
 
     def get(self, path) -> dict:
