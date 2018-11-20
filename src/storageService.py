@@ -1,5 +1,6 @@
 import time
 import os
+import hashlib
 from os import (
     remove,
     mkdir,
@@ -21,7 +22,7 @@ import shutil
 import rpyc
 
 import src.dfs as dfs
-
+from src.nameserverService import NameserverService
 
 GlobalLock = threading.Lock()
 
@@ -40,10 +41,12 @@ def walkOnStorage(rootPath, curdir, ns):
                 dfs.filehash(fullpath)
             )
             if not ns.tryPublishFile(file):
+                logging.warn("Remove old %s", fullpath)
                 os.remove(fullpath)  # <======================= rm
         elif isdir(fullpath):
             walkOnStorage(rootPath, dfs_path, ns)
             if not ns.isdir(dfs_path):
+                logging.warn("Remove dir %s", fullpath)
                 os.rmdir(fullpath)  # <===================== rmdir
         else:
             raise ValueError("Bad file {}".format(fullpath))
@@ -68,7 +71,7 @@ def recoverFiles(rootPath, ns):
 def setWatchDog(nsConn, server):
     def checkNsConnection():
         while True:
-            time.sleep(1)
+            time.sleep(10)
             try:
                 nsConn.ping("Hello")
             except:
@@ -83,9 +86,10 @@ def setWatchDog(nsConn, server):
 
 class StorageService(rpyc.Service):
 
-    def __init__(self, args):
+    def __init__(self, args, ns: NameserverService):
         self._args = args
         self._rootpath = args.rootpath
+        self._ns = ns
 
     def exposed_pull(self, src_name, src_hostname, src_port, filepath):
         with GlobalLock:
@@ -108,6 +112,28 @@ class StorageService(rpyc.Service):
             logging.debug("open:[%s] %s ", mode, filepath)
             fullpath = normpath(join(self._rootpath, '.' + filepath))
             return open(fullpath, mode)
+
+    def exposed_write_fileobj(self, filepath, fsrc):
+        with GlobalLock:
+            logging.debug("write_fileobj: %s", filepath)
+            fullpath = normpath(join(self._rootpath, '.' + filepath))
+            sha256 = hashlib.sha256()
+            size = 0
+            with open(fullpath, "bw") as fdst:
+                while 1:
+                    buf = fsrc.read(1024)
+                    if not buf:
+                        break
+                    size += len(buf)
+                    sha256.update(buf)
+                    fdst.write(buf)
+
+        # release lock early as soon other replicas come to us after notification
+        self._ns.exposed_write_notification(
+            filepath=filepath,
+            filehash=sha256.hexdigest(),
+            size=size
+        )
 
     def exposed_rm(self, filepath):
         with GlobalLock:

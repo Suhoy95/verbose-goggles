@@ -71,7 +71,7 @@ def main(args):
         ca_certs=args.ca_cert,
     )
 
-    service = StorageService(args)
+    service = StorageService(args, nsConn.root)
 
     server = ThreadedServer(
         service=service,

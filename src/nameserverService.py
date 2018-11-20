@@ -42,6 +42,7 @@ def mkdir_on(storage, dfs_dir, args):
     conn.root.mkdir(dfs_dir)
     conn.close()
 
+
 def rmdir_from(storage, dfs_dir, args):
     addr = storage['addr']
     conn = rpyc.ssl_connect(addr[0], port=addr[1],
@@ -51,6 +52,7 @@ def rmdir_from(storage, dfs_dir, args):
                             config={'sync_request_timeout': -1, })
     conn.root.rmdir(dfs_dir)
     conn.close()
+
 
 class NameserverService(rpyc.Service):
     def __init__(self,
@@ -88,8 +90,11 @@ class NameserverService(rpyc.Service):
                          self._storage['name'])
             self._ActiveStorages.remove(self)
             for filepath, storages in self._Location.items():
-                storages.remove(self)
-                if len(storages) == 1:
+                try:
+                    storages.remove(self)
+                except KeyError:
+                    pass
+                if len(storages) <= 1:
                     self._NeedReplication.add(filepath)
             self.tryReplicate()
 
@@ -148,23 +153,36 @@ class NameserverService(rpyc.Service):
             logging.info('Storage "%s" has activated', self.name)
             self.tryReplicate()
 
-    def exposed_write_notification(self, file):
+    def exposed_write_notification(self, filepath, filehash, size):
         """ event of client's writing file (create/update)"""
+        if self._storage is None:
+            raise ValueError("Write notification from client")
+
+        logging.info("write_notification from %s. file: %s",
+                     self.name, filepath)
+
         with self._GlobalLock:
-            f = self._Tree.get(file['path'])
+            f = self._Tree.get(filepath)
 
             # file was updated, we remove previous file
             # and go to situation when file was created
             if f is not None:
                 # TODO: not delete file on current storage, because it has been overwritten
                 # TODO: remove files
-                pass
+                for st in self._Location.get(filepath, set()):
+                    st._storage['free'] += f['size']
+                    if st != self:
+                        try:
+                            rm_from(st._storage, filepath, self._args)
+                        except Exception as e:
+                            logging.warn("Could not remove prev version of %s from %s. %s",
+                                         filepath, st.name, e)
 
             # file was created
-            self._Tree.add(file)
-            self._Location[f['path']].add(self)
-            self._NeedReplication.add(f['path'])
-            self._storage['free'] -= file['size']
+            self._Tree.add(dfs.File(filepath, size, filehash))
+            self._Location[filepath] = {self}
+            self._NeedReplication.add(filepath)
+            self._storage['free'] -= size
 
             self.tryReplicate()
 
@@ -215,7 +233,22 @@ class NameserverService(rpyc.Service):
             return self._Tree.get(path)
 
     def exposed_locations(self, path):
-        return list(map(lambda s: s._storage, self._Location[path]))
+        with self._GlobalLock:
+            return list(map(lambda s: s._storage, self._Location[path]))
+
+    def exposed_availableStorages(self, dfs_path, size):
+        with self._GlobalLock:
+            storages = []
+            stat = self._Tree.get(dfs_path)
+            for s in self._ActiveStorages:
+                increase = 0
+                if stat is not None and s in self._Location.get(dfs_path, set()):
+                    increase = stat['size']
+
+                if s._storage['free'] + increase > size:
+                    storages.append(s._storage)
+
+            return storages
 
     def exposed_ls(self, dfs_dir):
         with self._GlobalLock:

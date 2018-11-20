@@ -160,10 +160,34 @@ class ClientCmd(cmd.Cmd):
             raise VgException("{0} is not regular file".format(file))
 
         dst_dfs_path = self._to_dfs_abs_path(parts[1])
+        stat = self._ns.stat(dst_dfs_path)
+        if stat is not None and stat['type'] == dfs.DIRECTORY:
+            raise VgException("{} is a directory".format(dst_dfs_path))
 
-        # TODO:
+        availableStorages = self._ns.availableStorages(dst_dfs_path,
+                                                       path.getsize(src_local_path))
 
-        self.cmds.put(src_local_path, dst_dfs_path)
+        for st in availableStorages:
+            try:
+                logging.info("Try put %s on %s", src_local_path, st['name'])
+                addr = st['addr']
+                conn = rpyc.ssl_connect(addr[0], port=addr[1],
+                                        keyfile=self._args.keyfile,
+                                        certfile=self._args.certfile,
+                                        ca_certs=self._args.ca_cert,
+                                        config={
+                                            'sync_request_timeout': -1,
+                                            'allow_public_attrs': True,
+                })
+                with open(src_local_path, "rb") as fsrc:
+                    conn.root.write_fileobj(dst_dfs_path, fsrc)
+                conn.close()
+                return
+            except Exception:
+                logging.warn("FAIL:put %s on %s", src_local_path, st['name'])
+        else:
+            raise VgException(
+                "Can not put file {} on storages".format(src_local_path))
 
     def do_pwd(self, line):
         """
@@ -230,7 +254,7 @@ class ClientCmd(cmd.Cmd):
             raise VgException("{} does not exist".format(dfs_file))
 
         if f['type'] != dfs.FILE:
-            raise VgException("'{0}' is not a file".format(dfs_file))
+            raise VgException("'{0}' is not a regular file".format(dfs_file))
 
         self._ns.rm(dfs_file)
 
