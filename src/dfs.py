@@ -66,6 +66,9 @@ class Tree:
             self._tree = json.load(f)
 
     def save(self):
+        # TODO: write to tmp-file and then rename to self._jsonfile
+        # currently it is dangeros non-atomic operation
+        # termination of which will buries whole DFS
         with open(self._jsonfile, "w") as f:
             f.write(json.dumps(self._tree, indent=4))
 
