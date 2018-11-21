@@ -10,7 +10,7 @@ from rpyc.utils.server import ThreadedServer
 import src.dfs as dfs
 from src.storageService import (
     StorageService,
-    recoverFiles,
+    becomeStorage,
     setWatchDog
 )
 
@@ -73,17 +73,10 @@ def main(args):
         logging.fatal("Could not connect too the nameserver")
         exit(-1)
 
-    def becomeStorage():
-        nsConn.root.upgrade(
-            name=args.name,
-            hostname=args.hostname,
-            port=args.port,
-            capacity=args.capacity
-        )
-        recoverFiles(args.rootpath, nsConn.root)
-        nsConn.root.activate()
-
-    t = Thread(target=becomeStorage)
+    # we start recovering in separate thread to force starting of ThreadServer
+    # Because if it is server with actual files it should expect
+    # that over storages can request some files for replication
+    t = Thread(target=lambda: becomeStorage(args, nsConn.root))
     t.daemon = True
     t.start()
 

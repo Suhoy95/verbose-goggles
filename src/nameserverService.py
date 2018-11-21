@@ -225,6 +225,8 @@ class NameserverService(rpyc.Service):
                         break
                     except Exception as e:
                         print(e)
+            else:
+                logging.warn('Could not replicate "%s"', filepath)
 
 #
 #   method for the Client

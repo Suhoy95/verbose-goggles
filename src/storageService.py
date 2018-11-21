@@ -27,7 +27,7 @@ from src.nameserverService import NameserverService
 GlobalLock = threading.Lock()
 
 
-def walkOnStorage(rootPath, curdir, ns):
+def walkOnStorage(rootPath: str, curdir: str, ns: NameserverService):
     d = normpath(join(rootPath, '.' + curdir))
 
     for name in os.listdir(d):
@@ -52,7 +52,7 @@ def walkOnStorage(rootPath, curdir, ns):
             raise ValueError("Bad file {}".format(fullpath))
 
 
-def walkOnDfs(rootPath, dfs_dir, ns):
+def walkOnDfs(rootPath: str, dfs_dir: str, ns: NameserverService):
     """ Recreate directory according with dfs """
     for name in ns.listdir(dfs_dir):
         dfs_path = join(dfs_dir, name)
@@ -63,12 +63,19 @@ def walkOnDfs(rootPath, dfs_dir, ns):
             walkOnDfs(rootPath, dfs_path, ns)
 
 
-def recoverFiles(rootPath, ns):
-    walkOnStorage(rootPath, '/', ns)
-    walkOnDfs(rootPath, '/', ns)
+def becomeStorage(args, ns: NameserverService):
+    ns.upgrade(
+        name=args.name,
+        hostname=args.hostname,
+        port=args.port,
+        capacity=args.capacity
+    )
+    walkOnStorage(args.rootpath, '/', ns)
+    walkOnDfs(args.rootpath, '/', ns)
+    ns.activate()
 
 
-def setWatchDog(nsConn, server):
+def setWatchDog(nsConn: rpyc.Connection, server):
     def checkNsConnection():
         while True:
             time.sleep(10)
@@ -103,8 +110,8 @@ class StorageService(rpyc.Service):
                                     })
             targetFile = normpath(join(self._rootpath, '.' + filepath))
             with conn.root.open(filepath, "br") as fsrc:
-                with open(targetFile, "bw") as fout:
-                    shutil.copyfileobj(fsrc, fout)
+                with open(targetFile, "bw") as fdst:
+                    shutil.copyfileobj(fsrc, fdst)
             conn.close()
 
     def exposed_open(self, filepath, mode):
