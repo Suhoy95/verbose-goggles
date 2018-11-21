@@ -1,3 +1,4 @@
+import os
 import logging
 import argparse
 from threading import Thread
@@ -16,21 +17,43 @@ from src.storageService import (
 
 def parse_args():
     parser = argparse.ArgumentParser(add_help="Storage server")
-    parser.add_argument("--name")
-    parser.add_argument("--hostname")
-    parser.add_argument("--port", type=int)
-    parser.add_argument("--capacity", type=int)
+    parser.add_argument("--name", default=None)
+    parser.add_argument("--hostname", default=None, required=False)
+    parser.add_argument("--port", type=int, default=None, required=False)
+    parser.add_argument("--capacity", type=int, default=None, required=False)
 
     parser.add_argument("--ca_cert")
-    parser.add_argument("--keyfile")
-    parser.add_argument("--certfile")
+    parser.add_argument("--keyfile", default=None, required=False)
+    parser.add_argument("--certfile", default=None, required=False)
 
-    parser.add_argument("--ns_hostname")
-    parser.add_argument("--ns_port")
+    parser.add_argument("--ns_hostname", default=None, required=False)
+    parser.add_argument("--ns_port", default=None, required=False)
 
     parser.add_argument("--rootpath")
 
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    # Try extract ARGS from ENVIRONMENT if we are in the docker
+    if args.name is None:
+        args.name = os.environ['name']
+    if args.hostname is None:
+        args.hostname = os.environ['hostname']
+    if args.port is None:
+        args.port = int(os.environ['port'])
+    if args.capacity is None:
+        args.capacity = int(os.environ['capacity'])
+
+    if args.keyfile is None:
+        args.keyfile = "certs/{0}/{0}.key".format(args.name)
+    if args.certfile is None:
+        args.certfile = "certs/{0}/{0}.crt".format(args.name)
+
+    if args.ns_hostname is None:
+        args.ns_hostname = os.environ['ns_hostname']
+    if args.ns_port is None:
+        args.ns_port = int(os.environ['ns_port'])
+
+    return args
 
 
 def main(args):

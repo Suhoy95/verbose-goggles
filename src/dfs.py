@@ -1,5 +1,6 @@
 import json
 import hashlib
+import logging
 from os.path import (
     basename,
     dirname
@@ -51,8 +52,14 @@ def filehash(filename):
 class Tree:
     def __init__(self, jsonfile):
         self._jsonfile = jsonfile
-        with open(jsonfile, "r") as f:
-            self._tree = json.load(f)
+        try:
+            with open(jsonfile, "r") as f:
+                self._tree = json.load(f)
+        except Exception:
+            logging.warn("Could not read from jsonfile, new created")
+            self._tree = dict()
+            self._tree['/'] = Dir('/')
+            self.save()
 
     def refresh(self):
         with open(self._jsonfile, "r") as f:

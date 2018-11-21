@@ -200,12 +200,16 @@ class NameserverService(rpyc.Service):
         self._NeedReplication.difference_update(notNeed)
 
         for filepath in self._NeedReplication:
-            logging.info('Trying to replicate "%s"', filepath)
             for s in self._ActiveStorages - self._Location[filepath]:
                 file = self._Tree.get(filepath)
                 if s._storage['free'] > file['size'] and len(self._Location[filepath]) > 0:
                     try:
                         src_storage = list(self._Location[filepath])[0]
+                        logging.info('Trying to replicate "%s" from "%s" to "%s"',
+                                     filepath,
+                                     src_storage._storage['name'],
+                                     s._storage['name'],
+                                     )
                         tryReplicateFile(
                             src_storage._storage,
                             s._storage,
