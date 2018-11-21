@@ -84,10 +84,13 @@ class Tree:
         return self._tree.get(path, None)
 
     def pop(self, path):
+        f = self._tree.pop(path, None)
+        if f is None:
+            return None
+
         name = basename(path)
         dfs_dir = dirname(path)
-        dstat = self.get(dfs_dir)
+        dstat = self._tree.get(dfs_dir)
         dstat['files'].remove(name)
-        f = self._tree.pop(path, File(path, 0, ""))
         self.save()
         return f

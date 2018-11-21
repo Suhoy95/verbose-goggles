@@ -1,5 +1,6 @@
 import logging
 import threading
+import random
 from os.path import (
     join
 )
@@ -98,7 +99,7 @@ class NameserverService(rpyc.Service):
 #
 #   method for storage(s)
 #
-    def exposed_upgrade(self, name, hostname, port, capacity):
+    def exposed_upgrade(self, name: str, hostname: str, port: int, capacity: int):
         """ Exclaim that connection is storage """
         self._storage = dfs.Storage(
             name=name,
@@ -109,6 +110,9 @@ class NameserverService(rpyc.Service):
 
     def exposed_tryPublishFile(self, file):
         """ Storage asks should it keeps the file or not """
+        if self._storage is None:
+            raise ValueError("Client tries to publish files")
+
         logging.debug('isActualFile:%s:%s', self.name, file['path'])
         with self._GlobalLock:
             f = self._Tree.get(file['path'])
@@ -145,6 +149,8 @@ class NameserverService(rpyc.Service):
 
     def exposed_activate(self):
         """ Exclaim that storage become active """
+        if self._storage is None:
+            raise ValueError("Client tries to activate")
         with self._GlobalLock:
             self._ActiveStorages.add(self)
             logging.info('Storage "%s" has activated', self.name)
@@ -159,7 +165,7 @@ class NameserverService(rpyc.Service):
                      self.name, filepath)
 
         with self._GlobalLock:
-            f = self._Tree.get(filepath)
+            f = self._Tree.pop(filepath)
 
             # file was updated, we remove previous file
             # and go to situation when file was created
@@ -188,9 +194,6 @@ class NameserverService(rpyc.Service):
             Trying to find new storage to backup the file
             Call it under _GlobalLock and from storage-bind conection!!!
         """
-        if self._storage is None:
-            raise ValueError("Trying to run replication from client")
-
         # remove files, which has become replicated
         notNeed = set()
         for filepath in self._NeedReplication:
@@ -200,9 +203,11 @@ class NameserverService(rpyc.Service):
         self._NeedReplication.difference_update(notNeed)
 
         for filepath in self._NeedReplication:
-            for s in self._ActiveStorages - self._Location[filepath]:
+            avail_storages = list(self._ActiveStorages - self._Location[filepath])
+            random.shuffle(avail_storages)
+            for s in avail_storages:
                 file = self._Tree.get(filepath)
-                if s._storage['free'] > file['size'] and len(self._Location[filepath]) > 0:
+                if s._storage['free'] >= file['size'] and len(self._Location[filepath]) > 0:
                     try:
                         src_storage = list(self._Location[filepath])[0]
                         logging.info('Trying to replicate "%s" from "%s" to "%s"',
@@ -246,9 +251,10 @@ class NameserverService(rpyc.Service):
                 if stat is not None and s in self._Location.get(dfs_path, set()):
                     increase = stat['size']
 
-                if s._storage['free'] + increase > size:
+                if s._storage['free'] + increase >= size:
                     storages.append(dict(s._storage))
 
+            random.shuffle(storages) # Random balancing!!
             return storages
 
     def exposed_ls(self, dfs_dir):
@@ -288,6 +294,8 @@ class NameserverService(rpyc.Service):
                     s._storage['free'] += f['size']
                 except Exception as e:
                     logging.warn("FAIL: rm %s : %s", dfs_file, e)
+            # we have new free space for replication
+            self.tryReplicate()
 
     def exposed_mkdir(self, dfs_dir: str):
         with self._GlobalLock:
