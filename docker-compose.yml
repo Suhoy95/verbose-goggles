@@ -1,0 +1,157 @@
+version: '3'
+services:
+  nameserver:
+    build:
+      context: .
+      dockerfile: delivery/nameserver.Dockerfile
+
+    ports:
+      - "8000:8000"
+
+    networks:
+      main:
+        aliases:
+          - nameserver
+
+  alice:
+    build:
+      context: .
+      dockerfile: delivery/storage.Dockerfile
+    environment:
+      name: "alice"
+      hostname: alice
+      port: 8001
+      capacity: 1048576
+      ns_hostname: nameserver
+      ns_port: 8000
+    ports:
+      - "8001:8001"
+    networks:
+      main:
+        aliases:
+          - alice
+    depends_on:
+      - nameserver
+
+  bob:
+    build:
+      context: .
+      dockerfile: delivery/storage.Dockerfile
+    environment:
+      name: "bob"
+      port: 8002
+      hostname: bob
+      capacity: 1048576
+      ns_hostname: nameserver
+      ns_port: 8000
+    ports:
+      - "8002:8002"
+    networks:
+      main:
+        aliases:
+          - bob
+    depends_on:
+      - nameserver
+
+  carol:
+    build:
+      context: .
+      dockerfile: delivery/storage.Dockerfile
+    environment:
+      name: "carol"
+      port: 8003
+      hostname: carol
+      capacity: 1048576
+      ns_hostname: nameserver
+      ns_port: 8000
+    ports:
+      - "8003:8003"
+    networks:
+      main:
+        aliases:
+          - carol
+    depends_on:
+      - nameserver
+
+  dave:
+    build:
+      context: .
+      dockerfile: delivery/storage.Dockerfile
+    environment:
+      name: "dave"
+      hostname: dave
+      port: 8004
+      capacity: 1048576
+      ns_hostname: nameserver
+      ns_port: 8000
+    ports:
+      - "8004:8004"
+    networks:
+      main:
+        aliases:
+          - dave
+    depends_on:
+      - nameserver
+
+  eve:
+    build:
+      context: .
+      dockerfile: delivery/storage.Dockerfile
+    environment:
+      name: "eve"
+      hostname: eve
+      port: 8005
+      capacity: 1048576
+      ns_hostname: nameserver
+      ns_port: 8000
+    ports:
+      - "8005:8005"
+    networks:
+      main:
+        aliases:
+          - eve
+    depends_on:
+      - nameserver
+
+  mellory:
+    build:
+      context: .
+      dockerfile: delivery/storage.Dockerfile
+    environment:
+      name: "mellory"
+      hostname: mellory
+      port: 8006
+      capacity: 1048576
+      ns_hostname: nameserver
+      ns_port: 8000
+    ports:
+      - "8006:8006"
+    networks:
+      main:
+        aliases:
+          - mellory
+    depends_on:
+      - nameserver
+
+  trent:
+    build:
+      context: .
+      dockerfile: delivery/storage.Dockerfile
+    environment:
+      name: "trent"
+      hostname: trent
+      port: 8007
+      capacity: 1048576
+      ns_hostname: nameserver
+      ns_port: 8000
+    ports:
+      - "8007:8007"
+    networks:
+      main:
+        aliases:
+          - trent
+    depends_on:
+      - nameserver
+
+networks:
+  main:
