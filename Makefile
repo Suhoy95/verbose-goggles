@@ -13,5 +13,5 @@ run_client:
 	@docker rm vg_client
 	docker run --name vg_client \
 		--network verbose-goggles_main \
-		--mount type=bind,src=$(shell pwd)/tmp,dst=/app/tmp \
+		--mount "type=bind,src=$(shell pwd)/tmp,dst=/app/tmp" \
 		-it suhoy/vg_client
