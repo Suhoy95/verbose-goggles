@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 import argparse
-import os
 import traceback
 import logging
-from os import path
+from os import (
+    getcwd
+)
 from os.path import (
     abspath,
+    isdir
 )
 
 import rpyc
@@ -19,7 +21,7 @@ from src.clientcmd import (
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--local",
-                        default=os.getcwd(),
+                        default=getcwd(),
                         help="""
                         local directory for exchanging file with DFS.
                         Current Working Directory by default.
@@ -27,7 +29,8 @@ def parse_args():
                         )
     parser.add_argument("--logfile",
                         default=None,
-                        help="""Path to log file""",
+                        help="""Path to log file. if it is not specified,
+                        log messgaes will print to the terminal""",
                         )
     parser.add_argument("--loglevel",
                         default="WARNING",
@@ -47,14 +50,18 @@ def parse_args():
 
     args = parser.parse_args()
 
-    if path.isdir(args.local):
-        args.local = path.abspath(args.local)
-    else:
+    if not isdir(args.local):
         print("""ERROR:
 ERROR: --local is not a local directory
 ERROR:""")
         parser.print_help()
         exit(-1)
+
+    args.local = abspath(args.local)
+    # we will change CWD to local
+    args.ca_cert = abspath(args.ca_cert)
+    args.keyfile = abspath(args.keyfile)
+    args.certfile = abspath(args.certfile)
 
     numeric_level = getattr(logging, args.loglevel, None)
     if not isinstance(numeric_level, int):
@@ -62,11 +69,6 @@ ERROR:""")
 ERROR: Invalid logging level: {}
 ERROR: """.format(args.loglevel))
         exit(-1)
-
-    # we will change CWD to local
-    args.ca_cert = abspath(args.ca_cert)
-    args.keyfile = abspath(args.keyfile)
-    args.certfile = abspath(args.certfile)
 
     logging.basicConfig(
         level=numeric_level,
@@ -78,14 +80,6 @@ ERROR: """.format(args.loglevel))
 
 if __name__ == "__main__":
     args = parse_args()
-
-    logging.debug("Starting client:")
-    logging.debug('--local %s', args.local)
-    logging.debug('--logfile %s',
-                  args.logfile if args.logfile else 'NULL')  # pay respect to C
-    logging.debug('--loglevel %s', args.loglevel)
-    logging.debug('--ns_hostname %s', args.ns_hostname)
-    logging.debug('--ns_port %s', args.ns_port)
 
     quit = False
 
@@ -117,5 +111,5 @@ if __name__ == "__main__":
             print("[ERROR] Connection with nameserver has been lost")
             exit(-1)
         except Exception as e:
-            print("[ERROR] ", type(e), e)
+            print("[UNEXPECTED ERROR] ", e)
             logging.exception("[ERROR]")

@@ -1,9 +1,24 @@
-import os
-import os.path as path
 import cmd
 import rpyc
 import logging
 import shutil
+
+from os.path import (
+    abspath,
+    exists,
+    isfile,
+    isdir,
+    getsize,
+    join,
+    isabs,
+    normpath,
+    basename
+)
+from os import (
+    chdir,
+    getcwd,
+    listdir
+)
 
 import src.dfs as dfs
 from src.nameserverService import NameserverService
@@ -21,7 +36,7 @@ class ClientCmd(cmd.Cmd):
         cmd.Cmd.__init__(self)
         self._ns = ns
         self._args = args
-        os.chdir(local)
+        chdir(local)
         self.do_cd("/")
         self.do_usage("")
 
@@ -105,9 +120,9 @@ class ClientCmd(cmd.Cmd):
             raise VgException("{} is not a regular file".format(src_dfs_path))
 
         file = parts[1]
-        dst_local_path = path.abspath(file)
+        dst_local_path = abspath(file)
 
-        if path.exists(dst_local_path):
+        if exists(dst_local_path):
             answer = input("'%s' exists. Overwrite[y/N]? " % (dst_local_path,))
             if answer.lower() != 'y':
                 return
@@ -119,6 +134,8 @@ class ClientCmd(cmd.Cmd):
 
         for s in storages:
             try:
+                logging.debug('Getting %s from %s (%s)',
+                              src_dfs_path, s['name'], s['addr'])
                 conn = rpyc.ssl_connect(s['addr'][0], port=s['addr'][1],
                                         keyfile=self._args.keyfile,
                                         certfile=self._args.certfile,
@@ -132,8 +149,8 @@ class ClientCmd(cmd.Cmd):
                 conn.close()
                 return
             except Exception as e:
-                logging.warn("FAIL:get:%s from %s (%s)",
-                             src_dfs_path, s['name'], s['addr'])
+                logging.warn("FAIL:get:%s from %s (%s): %s",
+                             src_dfs_path, s['name'], s['addr'], e)
         else:
             raise VgException(
                 "Could not download {} from storages".format(src_dfs_path))
@@ -151,12 +168,12 @@ class ClientCmd(cmd.Cmd):
                 "Wrong amount of arguments. Expect: 2, actual: {0}".format(len(parts)))
 
         file = parts[0]
-        src_local_path = path.abspath(file)
+        src_local_path = abspath(file)
 
-        if not os.path.exists(src_local_path):
+        if not exists(src_local_path):
             raise VgException("File {0} does not exist".format(file))
 
-        if not os.path.isfile(src_local_path):
+        if not isfile(src_local_path):
             raise VgException("{0} is not regular file".format(file))
 
         dst_dfs_path = self._to_dfs_abs_path(parts[1])
@@ -165,11 +182,12 @@ class ClientCmd(cmd.Cmd):
             raise VgException("{} is a directory".format(dst_dfs_path))
 
         availableStorages = self._ns.availableStorages(dst_dfs_path,
-                                                       path.getsize(src_local_path))
+                                                       getsize(src_local_path))
 
         for st in availableStorages:
             try:
-                logging.info("Try put %s on %s", src_local_path, st['name'])
+                logging.info("Putting %s on %s (%s)",
+                             src_local_path, st['name'], st['path'])
                 addr = st['addr']
                 conn = rpyc.ssl_connect(addr[0], port=addr[1],
                                         keyfile=self._args.keyfile,
@@ -184,7 +202,7 @@ class ClientCmd(cmd.Cmd):
                 conn.close()
                 return
             except Exception:
-                logging.warn("FAIL:put %s on %s", src_local_path, st['name'])
+                logging.warn("FAIL:put %s on %s (%s)", src_local_path, st['name'], st['path'])
         else:
             raise VgException(
                 "Can not put file {} on storages".format(src_local_path))
@@ -195,7 +213,7 @@ class ClientCmd(cmd.Cmd):
 
         Print Current Working Directory (CWD) and local path
         """
-        print("CWD: %s\nLOCAL: %s" % (self._cwd, os.getcwd()))
+        print("CWD: %s\nLOCAL: %s" % (self._cwd, getcwd()))
 
     def do_ls(self, line):
         """
@@ -264,17 +282,17 @@ class ClientCmd(cmd.Cmd):
 
         List content of LOCAL_DIR
         """
-        line = path.abspath(line)
+        line = abspath(line)
 
-        if not path.isdir(line):
+        if not isdir(line):
             raise VgException("'{}' is not a local directory".format(line))
 
         print("{:4} {: >30}\t{}".format("TYPE", "FILENAME", "FILESIZE"))
-        for f in os.listdir(line):
-            fpath = path.join(line, f)
-            ftype = "D" if os.path.isdir(fpath) else "F"
+        for f in listdir(line):
+            fpath = join(line, f)
+            ftype = "D" if isdir(fpath) else "F"
             print("{:4} {: >30}\t{}".format(
-                ftype, path.basename(f), os.path.getsize(fpath)))
+                ftype, basename(f), getsize(fpath)))
 
     def do_mkdir(self, line):
         """
@@ -316,7 +334,7 @@ class ClientCmd(cmd.Cmd):
                     return
                 recursive = True
             for name in files:
-                dfs_path = path.join(dfs_dir, name)
+                dfs_path = join(dfs_dir, name)
                 if self._ns.isdir(dfs_path):
                     self.do_rmdir(dfs_path, recursive)
                 elif self._ns.isfile(dfs_path):
@@ -337,9 +355,9 @@ class ClientCmd(cmd.Cmd):
         return True
 
     def _to_dfs_abs_path(self, line):
-        if not path.isabs(line):
-            line = path.join(self._cwd, line)
+        if not isabs(line):
+            line = join(self._cwd, line)
 
-        line = path.normpath(line)
+        line = normpath(line)
 
         return line
